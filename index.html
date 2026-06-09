@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SENSE Animation Demo</title>
+<style>
+  :root {
+    --bg: #000000;
+    --purple: #8B5CFF;
+    --mint: #00FF88;
+    --gold: #FFD700;
+    --magenta: #FF2D7C;
+    --white: #FFFFFF;
+    --grey: #6B7280;
+    --hairline: #1F2937;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+
+  .stage {
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 9/19.5;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 36px;
+    position: relative;
+    overflow: hidden;
+    padding: 40px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 24px;
+  }
+  .top-bar .brand { color: var(--white); font-weight: 700; }
+  .top-bar .brand .period { color: var(--purple); }
+  .top-bar .tier { color: var(--white); font-feature-settings: "tnum"; }
+
+  .ring-stage {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-bottom: 28px;
+  }
+  .ring-svg {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-90deg);
+    overflow: visible;
+  }
+  .ring-track {
+    fill: none;
+    stroke: var(--hairline);
+    stroke-width: 8;
+    opacity: 0.5;
+  }
+  .ring-progress {
+    fill: none;
+    stroke: var(--purple);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke 0.3s ease;
+    filter: drop-shadow(0 0 8px var(--purple));
+  }
+  .ring-progress.warning { stroke: var(--gold); filter: drop-shadow(0 0 12px var(--gold)); }
+  .ring-progress.urgent {
+    stroke: var(--magenta);
+    filter: drop-shadow(0 0 14px var(--magenta));
+    animation: pulse 0.25s ease-in-out infinite alternate;
+  }
+  @keyframes pulse { from { opacity: 1; } to { opacity: 0.6; } }
+
+  .animal {
+    position: absolute;
+    inset: 24px;
+    border-radius: 50%;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%),
+      url('https://images.unsplash.com/photo-1547721064-da6cfb341d50?w=600&h=600&fit=crop') center/cover;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+  }
+
+  .timer-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--white);
+    text-shadow: 0 0 20px rgba(0,0,0,0.8);
+    font-feature-settings: "tnum";
+    pointer-events: none;
+    z-index: 5;
+  }
+  .timer-text.warning { color: var(--gold); text-shadow: 0 0 24px var(--gold); }
+  .timer-text.urgent { color: var(--magenta); text-shadow: 0 0 28px var(--magenta); }
+
+  .answers {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .answer {
+    border: 1.5px solid var(--hairline);
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    color: var(--white);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .answer:active { transform: scale(0.97); }
+  .answer.correct {
+    background: var(--mint);
+    color: #000;
+    border-color: var(--mint);
+    animation: correctPulse 0.4s ease-out;
+  }
+  .answer.wrong {
+    background: var(--magenta);
+    color: var(--white);
+    border-color: var(--magenta);
+    animation: wrongShake 0.4s ease-in-out;
+  }
+  @keyframes correctPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.06); box-shadow: 0 0 40px var(--mint); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wrongShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  /* WIN OVERLAY */
+  .win-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    overflow: hidden;
+  }
+  .win-overlay.active { display: flex; }
+  .win-flash {
+    position: fixed;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 99;
+  }
+  .win-flash.active { animation: flash 0.15s ease-out; }
+  @keyframes flash { from { opacity: 0.8; } to { opacity: 0; } }
+
+  .win-word {
+    font-size: 160px;
+    font-weight: 900;
+    color: var(--mint);
+    text-shadow: 0 0 60px var(--mint), 0 0 120px rgba(0,255,136,0.4);
+    line-height: 1;
+    margin-bottom: 12px;
+    animation: winRise 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: -0.04em;
+  }
+  .win-amount {
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--mint);
+    font-family: 'SF Mono', monospace;
+    font-feature-settings: "tnum";
+    animation: winRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
+  }
+  @keyframes winRise {
+    from { transform: translateY(60px) scale(0.5); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .confetti {
+    position: absolute;
+    width: 12px;
+    height: 18px;
+    pointer-events: none;
+  }
+  .dollar {
+    position: absolute;
+    font-size: 32px;
+    pointer-events: none;
+  }
+
+  /* LOSS OVERLAY */
+  .loss-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .loss-overlay.active { display: flex; }
+  .loss-word {
+    font-size: 100px;
+    font-weight: 900;
+    color: var(--magenta);
+    text-shadow: 0 0 40px var(--magenta);
+    line-height: 1;
+    margin-bottom: 12px;
+    animation: lossDrop 0.5s ease-out;
+    letter-spacing: -0.03em;
+  }
+  .loss-time {
+    font-size: 32px;
+    color: var(--magenta);
+    font-family: 'SF Mono', monospace;
+    font-feature-settings: "tnum";
+    margin-bottom: 24px;
+  }
+  .loss-heart {
+    font-size: 80px;
+    color: var(--magenta);
+    margin-bottom: 16px;
+    animation: heartCrack 0.7s ease-out;
+  }
+  @keyframes lossDrop { from { transform: translateY(-30px) scale(1.1); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+  @keyframes heartCrack {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.2); }
+    60% { transform: scale(1.1) rotate(-3deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+
+  /* HUD */
+  .hud {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .hud button {
+    background: rgba(139, 92, 255, 0.2);
+    color: var(--white);
+    border: 1px solid var(--purple);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+  .hud button:hover { background: rgba(139, 92, 255, 0.4); }
+
+  .label {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--grey);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .label .b { color: var(--white); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <button onclick="restartRound()">RESTART</button>
+  <button onclick="triggerWin()">SHOW WIN</button>
+  <button onclick="triggerLoss()">SHOW LOSS</button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="top-bar">
+    <span class="brand">SENSE<span class="period">.</span></span>
+    <span class="tier">$1 · POT $1.90</span>
+    <span>MAYA · 0:01</span>
+  </div>
+
+  <div class="ring-stage">
+    <svg class="ring-svg" viewBox="0 0 280 280">
+      <circle class="ring-track" cx="140" cy="140" r="130"/>
+      <circle class="ring-progress" id="ringProgress" cx="140" cy="140" r="130"
+              stroke-dasharray="817" stroke-dashoffset="0"/>
+    </svg>
+    <div class="animal"></div>
+    <div class="timer-text" id="timerText">0:10</div>
+  </div>
+
+  <div class="answers" id="answers">
+    <div class="answer" data-correct="1" onclick="answerTap(this, true)">CHEETAH</div>
+    <div class="answer" onclick="answerTap(this, false)">LEOPARD</div>
+    <div class="answer" onclick="answerTap(this, false)">JAGUAR</div>
+    <div class="answer" onclick="answerTap(this, false)">PANTHER</div>
+  </div>
+</div>
+
+<div class="win-flash" id="winFlash"></div>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="win-word">WIN</div>
+  <div class="win-amount">+$1.90</div>
+</div>
+
+<div class="loss-overlay" id="lossOverlay">
+  <div class="loss-heart">♥</div>
+  <div class="loss-word">0.04s</div>
+  <div class="loss-time">SLOWER</div>
+</div>
+
+<div class="label">
+  <span class="b">SENSE</span> · ANIMATION DEMO · tap an answer or use top-right buttons
+</div>
+
+<script>
+const ringProgress = document.getElementById('ringProgress');
+const timerText = document.getElementById('timerText');
+const RING_CIRC = 2 * Math.PI * 130; // ~817
+
+let secondsLeft = 10;
+let raf = null;
+let startTime = null;
+let answered = false;
+
+function vibrate(ms){
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
+function setRingState(s){
+  ringProgress.classList.remove('warning','urgent');
+  timerText.classList.remove('warning','urgent');
+  if (s === 'warning'){ ringProgress.classList.add('warning'); timerText.classList.add('warning'); }
+  if (s === 'urgent'){ ringProgress.classList.add('urgent'); timerText.classList.add('urgent'); }
+}
+
+function tick(now){
+  if (!startTime) startTime = now;
+  if (answered) return;
+  const elapsed = (now - startTime) / 1000;
+  secondsLeft = Math.max(0, 10 - elapsed);
+  const frac = secondsLeft / 10;
+  ringProgress.style.strokeDashoffset = (RING_CIRC * (1 - frac)).toFixed(1);
+  const display = Math.ceil(secondsLeft);
+  timerText.textContent = '0:' + (display < 10 ? '0' + display : display);
+
+  if (secondsLeft <= 2) setRingState('urgent');
+  else if (secondsLeft <= 5) setRingState('warning');
+  else setRingState('default');
+
+  // haptic at thresholds
+  if (secondsLeft <= 0){
+    triggerLoss();
+    return;
+  }
+  raf = requestAnimationFrame(tick);
+}
+
+function restartRound(){
+  answered = false;
+  startTime = null;
+  secondsLeft = 10;
+  ringProgress.style.strokeDashoffset = '0';
+  timerText.textContent = '0:10';
+  setRingState('default');
+  document.querySelectorAll('.answer').forEach(a => { a.classList.remove('correct','wrong'); });
+  document.getElementById('winOverlay').classList.remove('active');
+  document.getElementById('lossOverlay').classList.remove('active');
+  if (raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(tick);
+}
+
+function answerTap(el, isCorrect){
+  if (answered) return;
+  answered = true;
+  vibrate(20);
+  if (isCorrect){
+    el.classList.add('correct');
+    setTimeout(triggerWin, 400);
+  } else {
+    el.classList.add('wrong');
+    setTimeout(triggerLoss, 400);
+  }
+}
+
+function triggerWin(){
+  vibrate([30, 50, 80]);
+  document.getElementById('winFlash').classList.add('active');
+  setTimeout(() => document.getElementById('winFlash').classList.remove('active'), 200);
+  const overlay = document.getElementById('winOverlay');
+  overlay.classList.add('active');
+  // confetti
+  const colors = ['#00FF88','#FFD700','#8B5CFF','#FFFFFF'];
+  for (let i = 0; i < 60; i++){
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.background = colors[i % colors.length];
+    c.style.left = (Math.random()*100) + '%';
+    c.style.top = '-20px';
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    c.style.animation = `confettiFall ${1.4 + Math.random()*0.8}s cubic-bezier(.2,.7,.4,1) forwards`;
+    c.style.animationDelay = (Math.random()*0.3) + 's';
+    overlay.appendChild(c);
+    setTimeout(()=>c.remove(), 2500);
+  }
+  // dollar bills
+  for (let i = 0; i < 6; i++){
+    const d = document.createElement('div');
+    d.className = 'dollar';
+    d.textContent = '💵';
+    d.style.left = (10 + Math.random()*80) + '%';
+    d.style.top = '-40px';
+    d.style.animation = `dollarFall ${1.8+Math.random()*0.6}s cubic-bezier(.2,.7,.4,1) forwards`;
+    d.style.animationDelay = (Math.random()*0.4) + 's';
+    overlay.appendChild(d);
+    setTimeout(()=>d.remove(), 3000);
+  }
+}
+
+function triggerLoss(){
+  vibrate([80, 30, 30]);
+  document.getElementById('lossOverlay').classList.add('active');
+}
+
+// Inject confetti keyframes dynamically
+const sheet = document.styleSheets[0];
+sheet.insertRule(`@keyframes confettiFall { to { top: 110%; transform: translateY(0) rotate(720deg); } }`, sheet.cssRules.length);
+sheet.insertRule(`@keyframes dollarFall { to { top: 100%; } }`, sheet.cssRules.length);
+
+restartRound();
+</script>
+</body>
+</html>
